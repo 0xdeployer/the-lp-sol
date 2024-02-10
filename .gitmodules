@@ -16,3 +16,6 @@
 [submodule "lib/721a-fork"]
 	path = lib/721a-fork
 	url = https://github.com/0xdeployer/721a-fork
+[submodule "lib/lssvm"]
+	path = lib/lssvm
+	url = https://github.com/sudoswap/lssvm
