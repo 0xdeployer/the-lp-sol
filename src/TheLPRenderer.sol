@@ -1,12 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
-import "ERC721A/ERC721A.sol";
 import "solmate/utils/SSTORE2.sol";
 import "solmate/auth/Owned.sol";
 import "solmate/utils/LibString.sol";
-import "solmate/utils/ReentrancyGuard.sol";
-import "openzeppelin-contracts/utils/Address.sol";
-import "prb-math/PRBMathUD60x18.sol";
 import "./TheLPTraits.sol";
 import "./Base64.sol";
 

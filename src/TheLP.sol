@@ -5,10 +5,11 @@ import "solmate/utils/SSTORE2.sol";
 import "solmate/auth/Owned.sol";
 import "solmate/utils/LibString.sol";
 import "solmate/utils/ReentrancyGuard.sol";
-import "openzeppelin-contracts/utils/Address.sol";
+import "openzeppelin-contracts/contracts/utils/Address.sol";
 import "prb-math/PRBMathUD60x18.sol";
 import "./Base64.sol";
 import "./TheLPRenderer.sol";
+import {IPairFactoryLike} from "./IPairFactoryLike.sol";
 
 contract TheLP is ERC721AQueryable, Owned, ReentrancyGuard {
     using LibString for uint256;
@@ -18,6 +19,7 @@ contract TheLP is ERC721AQueryable, Owned, ReentrancyGuard {
 
     event PaymentReceived(address from, uint256 amount);
     event PaymentReleased(address to, uint256 amount);
+    event Refund(address to, uint amount);
 
     uint256 public MAX_SUPPLY;
     uint256 public MAX_PUB_SALE;
@@ -41,6 +43,9 @@ contract TheLP is ERC721AQueryable, Owned, ReentrancyGuard {
         bytes32 seed;
         uint256 cost;
     }
+
+    address private immutable SUDO_FACTORY;
+    address private immutable LINEAR_ADDRESS;
 
     error TokenNotForSale();
     error IncorrectPayment();
@@ -72,8 +77,12 @@ contract TheLP is ERC721AQueryable, Owned, ReentrancyGuard {
         uint256 maxTeam,
         uint256 maxLp,
         uint256 duration,
-        address _teamMintWallet
+        address _teamMintWallet,
+        address _factory,
+        address _linear
     ) ERC721A(name, symbol) Owned(msg.sender) {
+        SUDO_FACTORY = _factory;
+        LINEAR_ADDRESS = _linear;
         startTime = _startTime;
         endTime = startTime + duration;
         renderer = _renderer;
@@ -112,96 +121,8 @@ contract TheLP is ERC721AQueryable, Owned, ReentrancyGuard {
         feeSplit = newSplit;
     }
 
-    /// @dev Public get price function
-    function getBuyPrice() external view returns (uint256, uint256) {
-        return _getBuyPrice(0);
-    }
-
-    /// @dev Internal function to get the current price and fee
-    function _getPrice(uint256 minus, bool isBuy)
-        internal
-        view
-        returns (uint256, uint256)
-    {
-        uint256 balance = balanceOf(address(this));
-        uint256 priceA = _getEthBalance(minus).div(balance * 10**18);
-        if (isBuy) {
-            balance -= 1;
-        } else {
-            balance += 1;
-        }
-        uint256 priceB = _getEthBalance(minus).div(balance * 10**18);
-        uint256 fee;
-        if (priceB > priceA) {
-            fee = priceB - priceA;
-        } else {
-            fee = priceA - priceB;
-        }
-        return (priceB, fee);
-    }
-
-    /// @dev Get buy price. Includes minus params to account for
-    /// additional msg.value that should not be part of calculation.
-    function _getBuyPrice(uint256 minus)
-        private
-        view
-        returns (uint256, uint256)
-    {
-        return _getPrice(minus, true);
-    }
-
-    /// @dev Public get sell price function
-    function getSellPrice() external view returns (uint256, uint256) {
-        return _getSellPrice(0);
-    }
-
-    /// @dev Get sell price. Includes minus params to account for
-    /// additional msg.value that should not be part of calculation.
-    function _getSellPrice(uint256 minus)
-        private
-        view
-        returns (uint256, uint256)
-    {
-        return _getPrice(minus, false);
-    }
-
-    /// @dev Function used to buy an NFT within the LP contract
-    /// Must send buy price. Will refund any additional amounts.
-    function buy(uint256 id) public payable nonReentrant {
-        if (ownerOf(id) != address(this)) {
-            revert NotOwner(id);
-        }
-        (uint256 cost, uint256 fee) = _getBuyPrice(msg.value);
-        if (msg.value < cost) {
-            revert IncorrectPayment();
-        }
-
-        _totalFees += fee.div(feeSplit);
-
-        // Approve sender to move this token
-        // ERC721a doesn't abstract transfer functionality by default
-        _tokenApprovals[id].value = msg.sender;
-        transferFrom(address(this), msg.sender, id);
-
-        uint256 refund = msg.value - cost;
-        if (refund > 0) {
-            Address.sendValue(payable(msg.sender), refund);
-        }
-    }
-
     error ApprovalRequired(uint256 tokenId);
 
-    /// @dev Function used to sell an NFT
-    /// Token ID must be owned by msg.sender
-    function sell(uint256 tokenId) public payable nonReentrant {
-        if (ownerOf(tokenId) != msg.sender) {
-            revert NotOwner(tokenId);
-        }
-        (uint256 sellPrice, uint256 fee) = _getSellPrice(msg.value);
-        _totalFees += fee.div(feeSplit);
-        transferFrom(msg.sender, address(this), tokenId);
-        Address.sendValue(payable(msg.sender), sellPrice);
-    }
 
     function _burnForErc20(uint tokenId) internal {}
 
@@ -236,9 +157,10 @@ contract TheLP is ERC721AQueryable, Owned, ReentrancyGuard {
     error InvalidDepositAmount();
 
     /// @dev External function that can be used to add to ETH pool and total fees
-    function externalDeposit(uint256 amountTowardsFees)
+    function externalDeposit(uint256 amountTowardsFees) 
         external
         payable
+        nonReentrant
         returns (bool)
     {
         if (msg.value == 0) {
@@ -325,8 +247,10 @@ contract TheLP is ERC721AQueryable, Owned, ReentrancyGuard {
         if (ownerOf(tokenId) != msg.sender) {
             revert NotOwner(tokenId);
         }
-        Address.sendValue(payable(msg.sender), tokenMintInfo[tokenId].cost);
+        uint amount = tokenMintInfo[tokenId].cost;
+        Address.sendValue(payable(msg.sender), amount);
         tokenMintInfo[tokenId].cost = 0;
+        emit Refund(msg.sender, amount);
     }
 
     /// @dev Public function to redeem mint costs for multiple NFT IDs
@@ -338,6 +262,30 @@ contract TheLP is ERC721AQueryable, Owned, ReentrancyGuard {
 
         for (uint256 i = 0; i < tokenIds.length; i++) {
             _redeem(tokenIds[i]);
+        }
+    }
+
+    function _claimRefund(uint tokenId) private {
+        if (tokenMintInfo[tokenId].cost == 0) {
+            revert InvalidTokenId(tokenId);
+        }
+        if (ownerOf(tokenId) != msg.sender) {
+            revert NotOwner(tokenId);
+        }
+        if(tokenMintInfo[tokenId].cost > finalCost) {
+            uint amount = tokenMintInfo[tokenId].cost - finalCost;
+            Address.sendValue(payable(msg.sender), amount);
+            emit Refund(msg.sender, amount);
+        }
+        tokenMintInfo[tokenId].cost = 0;
+    }
+
+    function claimRefund(uint memory tokenIds) public nonReentrant {
+          if (!lockedIn) {
+            revert NotLockedIn();
+        }
+         for (uint256 i = 0; i < tokenIds.length; i++) {
+            _claimRefund(tokenIds[i]);
         }
     }
 
@@ -359,12 +307,34 @@ contract TheLP is ERC721AQueryable, Owned, ReentrancyGuard {
         if (lockedIn) {
             revert AlreadyLocked();
         }
-        uint256 half = address(this).balance.div(2 * 10**18);
-        Address.sendValue(payable(owner), half);
-        lpMintBlockHash = blockhash(block.number - 1);
-        _mintERC2309(address(this), MAX_LP);
         lockedIn = true;
+        // Get available funds minus refunds
+        uint totalAvailableEth = (_totalMinted() - MAX_TEAM) * finalCost;
+        // To be used in Uniswap pool
+        Address.sendValue(payable(owner), totalAvailableEth.div(2 * 10**18));
+        lpMintBlockHash = blockhash(block.number - 1);
+        _initSudoPool();
     }
+
+    /// @dev Initializing pool on SudoSwap
+    function _initSudoPool() internal returns (address tradePool){
+        uint256[] memory empty = new uint256[](0);
+        tradePool = address(
+            IPairFactoryLike(SUDO_FACTORY).createPairERC721ETH(
+                IERC721(address(this)),
+                ICurve(LINEAR_ADDRESS),
+                payable(address(this)),
+                LSSVMPair.PoolType.TRADE,
+                finalCost,
+                0,
+                finalCost,
+                address(0),
+                empty
+            )
+        );
+         _mintERC2309(tradePool, MAX_LP);
+    }
+
 
     /// @dev Gets the current mint price for dutch auction
     function getCurrentMintPrice() public view returns (uint256) {
@@ -389,8 +359,7 @@ contract TheLP is ERC721AQueryable, Owned, ReentrancyGuard {
         if (amount <= 0) {
             revert AmountRequired();
         }
-        uint256 totalMinted = _totalMinted();
-        uint256 totalAfterMint = totalMinted + amount;
+        uint256 totalAfterMint = _totalMinted() + amount;
         if (totalAfterMint > MAX_PUB_SALE + MAX_TEAM) {
             revert SoldOut();
         }

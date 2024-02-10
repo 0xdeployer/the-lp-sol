@@ -1,7 +1,12 @@
 ERC721A/=lib/721a-fork/contracts/
 ds-test/=lib/forge-std/lib/ds-test/src/
 forge-std/=lib/forge-std/src/
-openzeppelin-contracts/=lib/openzeppelin-contracts/contracts/
+libraries-solidity/=lib/lssvm/lib/libraries-solidity/contracts/
+lssvm/=lib/lssvm/src/
+openzeppelin-contracts-upgradeable/=lib/lssvm/lib/openzeppelin-contracts-upgradeable/
+openzeppelin-contracts/=lib/openzeppelin-contracts/
 prb-math/=lib/prb-math/contracts/
+royalty-registry-solidity.git/=lib/lssvm/lib/royalty-registry-solidity.git/contracts/
 solmate/=lib/solmate/src/
 sstore2/=lib/sstore2/contracts/
+weird-erc20/=lib/lssvm/lib/solmate/lib/weird-erc20/src/

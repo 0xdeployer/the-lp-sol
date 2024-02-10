@@ -5,7 +5,7 @@ import "forge-std/Test.sol";
 import "../src/TheLP.sol";
 import "../src/TheLPTraits.sol";
 import "../src/TheLPRenderer.sol";
-import "openzeppelin-contracts/utils/Address.sol";
+import "openzeppelin-contracts/contracts/utils/Address.sol";
 
 contract TheLPTest is Test {
     TheLP public lp;
