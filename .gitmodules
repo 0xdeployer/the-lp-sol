@@ -22,3 +22,6 @@
 [submodule "lib/lssvm2"]
 	path = lib/lssvm2
 	url = https://github.com/sudoswap/lssvm2
+[submodule "lib/ERC721A"]
+	path = lib/ERC721A
+	url = https://github.com/chiru-labs/ERC721A
