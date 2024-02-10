@@ -19,3 +19,6 @@
 [submodule "lib/lssvm"]
 	path = lib/lssvm
 	url = https://github.com/sudoswap/lssvm
+[submodule "lib/lssvm2"]
+	path = lib/lssvm2
+	url = https://github.com/sudoswap/lssvm2
