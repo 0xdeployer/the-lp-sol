@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.17;
 import "ERC721A/extensions/ERC721AQueryable.sol";
 import "solmate/utils/SSTORE2.sol";
 import "solmate/auth/Owned.sol";
@@ -29,10 +29,12 @@ contract TheLP is ERC721AQueryable, Owned, ReentrancyGuard {
     uint256 public DISCOUNT_RATE;
     uint256 public startTime;
     uint256 public endTime;
+    uint public finalCost;
     address public traitsImagePointer;
     uint256 public totalEthClaimed;
     bool public lockedIn = false;
     uint256 public feeSplit = 2 * 10**18;
+    address public erc20Address;
     mapping(uint256 => uint256) public _rewardDebt;
     mapping(uint256 => TokenMintInfo) public tokenMintInfo;
     struct TokenMintInfo {
@@ -199,6 +201,12 @@ contract TheLP is ERC721AQueryable, Owned, ReentrancyGuard {
         _totalFees += fee.div(feeSplit);
         transferFrom(msg.sender, address(this), tokenId);
         Address.sendValue(payable(msg.sender), sellPrice);
+    }
+
+    function _burnForErc20(uint tokenId) internal {}
+
+    function burnForErc20(uint[] memory tokenId) public nonReentrant {
+
     }
 
     uint256 private _totalFees;
@@ -408,6 +416,8 @@ contract TheLP is ERC721AQueryable, Owned, ReentrancyGuard {
         }
         _mint(msg.sender, amount);
         if (totalAfterMint == MAX_PUB_SALE + MAX_TEAM) {
+            // TODO: Save final cost here
+            finalCost = mintPrice;
             _lockItIn();
         }
     }
