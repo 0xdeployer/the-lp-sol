@@ -13,12 +13,6 @@
 [submodule "lib/prb-math"]
 	path = lib/prb-math
 	url = https://github.com/paulrberg/prb-math
-[submodule "lib/721a-fork"]
-	path = lib/721a-fork
-	url = https://github.com/0xdeployer/721a-fork
-[submodule "lib/lssvm"]
-	path = lib/lssvm
-	url = https://github.com/sudoswap/lssvm
 [submodule "lib/lssvm2"]
 	path = lib/lssvm2
 	url = https://github.com/sudoswap/lssvm2
