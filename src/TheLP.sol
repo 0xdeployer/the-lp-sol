@@ -42,6 +42,7 @@ contract TheLP is
   uint256 public finalCost;
   address public traitsImagePointer;
   uint256 public totalEthClaimed;
+  uint256 public royalty = 500;
   bool public poolInitialized;
   bool public lockedIn = false;
   address public erc20Address;
@@ -72,6 +73,8 @@ contract TheLP is
   error PoolInitialized();
   error AmountExceedsAvailableSupply();
   error SenderNotPair();
+  error InvalidDepositAmount();
+  error NothingToClaim();
 
   bytes32 teamMintBlockHash;
   bytes32 lpMintBlockHash;
@@ -113,8 +116,6 @@ contract TheLP is
       super.supportsInterface(interfaceId) ||
       ERC2981.supportsInterface(interfaceId);
   }
-
-  uint256 royalty = 500;
 
   function updateRoyalty(uint256 _royalty) public onlyOwner {
     royalty = _royalty;
@@ -193,7 +194,6 @@ contract TheLP is
     _onlyPair();
   }
 
-
   error ApprovalRequired(uint256 tokenId);
 
   uint256 private _totalFees;
@@ -220,9 +220,17 @@ contract TheLP is
     return ud(a).div(ud(MAX_SUPPLY * 10**18)).intoUint256();
   }
 
-  error InvalidDepositAmount();
 
-  error NothingToClaim();
+  /// @dev External function that can be used to add to total fees collected
+  function externalDeposit() external payable returns (bool) {
+    if (msg.value == 0) {
+      revert InvalidDepositAmount();
+    }
+    _totalFees += msg.value;
+    return true;
+  }
+
+  
 
   /// @dev Internal function used to claim share of fees for a given NFT ID
   /// Throws if trying to claim for NFTs in pool
@@ -337,7 +345,7 @@ contract TheLP is
   }
 
   /// @dev This function disables transfers until mint is complete.
-  function _beforeTokenTransfers( 
+  function _beforeTokenTransfers(
     address from,
     address to,
     uint256 startTokenId,
