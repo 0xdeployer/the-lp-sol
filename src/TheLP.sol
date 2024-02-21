@@ -230,8 +230,6 @@ contract TheLP is
     return true;
   }
 
-  
-
   /// @dev Internal function used to claim share of fees for a given NFT ID
   /// Throws if trying to claim for NFTs in pool
   function _claim(uint256 nftId) private {
