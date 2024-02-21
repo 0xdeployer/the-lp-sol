@@ -18,7 +18,9 @@ interface IPairFactoryLike {
         uint96 _fee,
         uint128 _spotPrice,
         address _propertyChecker,
-        uint256[] calldata _initialNFTIDs
+        uint256[] calldata _initialNFTIDs,
+        address _hookAddress,
+        address _referralAddress
     ) external payable returns (LSSVMPair pair);
 
     struct CreateERC721ERC20PairParams {

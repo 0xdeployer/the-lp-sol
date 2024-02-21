@@ -13,7 +13,7 @@ contract TheLPRenderer is Owned {
 
     address public traitsImagePointer;
     string description =
-        "AN EXPERIMENTAL APPROACH TO BOOTSTRAPPING NFT LIQUIDITY AND REWARDING HOLDERS";
+        "AN EXPERIMENTAL APPROACH TO BOOTSTRAPPING NFT LIQUIDITY AND REWARDING HOLDERS. Based LP NFTs are backed by $TN100x on Base. You can burn The Based LP for $TN100x or buy and sell instantly on SudoSwap. Holders collect all swap fees. Learn more at https://based.thelp.xyz";
 
     error TraitsImageAlreadySet();
 

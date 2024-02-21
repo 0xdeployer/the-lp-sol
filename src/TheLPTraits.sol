@@ -17,11 +17,14 @@ contract TheLPTraits {
     TraitInfo special;
 
     string[5] public colors = [
-        "#f8f8f8",
-        "#E5FBEF",
-        "#F5FCDD",
-        "#FDEEE8",
-        "#E5F1F6"
+        // Based Blue
+        "#0049f7",
+        // Farcaster Purple
+        "#8A63D2",
+        // Unlooped Green
+        "#66d559",
+        // Hero Yellow
+        "#f6d831"
     ];
 
     function getBack(uint256 i) public view returns (string memory) {

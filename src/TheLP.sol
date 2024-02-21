@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 import { ERC721A, ERC721AQueryable } from "ERC721A/extensions/ERC721AQueryable.sol";
+import { ERC2981 } from "openzeppelin-contracts/contracts/token/common/ERC2981.sol";
 import { IERC721A } from "ERC721A/interfaces/IERC721A.sol";
 import { IERC721 } from "openzeppelin-contracts/contracts/token/ERC721/IERC721.sol";
 import { ICurve } from "lssvm2/bonding-curves/ICurve.sol";
@@ -12,8 +13,15 @@ import { Address } from "openzeppelin-contracts/contracts/utils/Address.sol";
 import { UD60x18, ud } from "@prb/math/UD60x18.sol";
 import { TheLPRenderer } from "./TheLPRenderer.sol";
 import { IPairFactoryLike } from "./IPairFactoryLike.sol";
+import { IPairHooks } from "./IPairHooks.sol";
 
-contract TheLP is ERC721AQueryable, Owned, ReentrancyGuard {
+contract TheLP is
+  ERC721AQueryable,
+  Owned,
+  ReentrancyGuard,
+  IPairHooks,
+  ERC2981
+{
   TheLPRenderer renderer;
 
   event PaymentReceived(address from, uint256 amount);
@@ -21,21 +29,21 @@ contract TheLP is ERC721AQueryable, Owned, ReentrancyGuard {
   event Refund(address to, uint256 amount);
 
   uint256 public MAX_SUPPLY;
-  uint256 public MAX_PUB_SALE = 2900
+  uint256 public MAX_PUB_SALE = 2900;
   uint256 public MAX_TEAM = 333;
   uint256 public MAX_LP = 100;
   uint256 public DURATION;
   uint256 public MIN_PRICE = 0.001 ether;
-  uint256 public MAX_PRICE = 1 ether;
+  uint256 public MAX_PRICE = 0.25 ether;
   uint256 public DISCOUNT_RATE;
   uint256 public startTime;
+  address public tradePool;
   uint256 public endTime;
   uint256 public finalCost;
   address public traitsImagePointer;
   uint256 public totalEthClaimed;
   bool public poolInitialized;
   bool public lockedIn = false;
-  uint256 public feeSplit = 2 * 10**18;
   address public erc20Address;
   mapping(uint256 => uint256) public _rewardDebt;
   mapping(uint256 => TokenMintInfo) public tokenMintInfo;
@@ -63,6 +71,7 @@ contract TheLP is ERC721AQueryable, Owned, ReentrancyGuard {
   error NotLockedIn();
   error PoolInitialized();
   error AmountExceedsAvailableSupply();
+  error SenderNotPair();
 
   bytes32 teamMintBlockHash;
   bytes32 lpMintBlockHash;
@@ -73,11 +82,6 @@ contract TheLP is ERC721AQueryable, Owned, ReentrancyGuard {
     string memory symbol,
     uint256 _startTime,
     TheLPRenderer _renderer,
-    uint256 minPrice,
-    uint256 maxPrice,
-    uint256 maxPubSale,
-    uint256 maxTeam,
-    uint256 maxLp,
     uint256 duration,
     address _teamMintWallet,
     address _factory,
@@ -98,27 +102,97 @@ contract TheLP is ERC721AQueryable, Owned, ReentrancyGuard {
     teamMintBlockHash = blockhash(block.number - 1);
   }
 
-  /// @dev Public function to get the usable ETH balanance.
-  /// This balance does not include ETH set aside of holder fees.
-  function getEthBalance() external view returns (uint256) {
-    return _getEthBalance(0);
+  function supportsInterface(bytes4 interfaceId)
+    public
+    view
+    virtual
+    override(IERC721A, ERC721A, ERC2981)
+    returns (bool)
+  {
+    return
+      super.supportsInterface(interfaceId) ||
+      ERC2981.supportsInterface(interfaceId);
   }
 
-  /// @dev Private function to get usable ETH balance of the smart contract.
-  /// This ETH balance is what is used for liquidity. It should not include
-  /// ETH that is set aside for fees. Includes minus argument to subtract
-  /// msg.value which should not be included in calculation.
-  function _getEthBalance(uint256 minus) private view returns (uint256) {
-    uint256 balance = address(this).balance - minus;
-    uint256 fees = getFeeBalance();
-    if (fees > balance) return 0;
-    return balance - fees;
+  uint256 royalty = 500;
+
+  function updateRoyalty(uint256 _royalty) public onlyOwner {
+    royalty = _royalty;
   }
 
-  /// @dev Public function to update the fee split
-  function updateFeeSplit(uint256 newSplit) public onlyOwner {
-    feeSplit = newSplit;
+  function royaltyInfo(uint256 _tokenId, uint256 _salePrice)
+    public
+    view
+    override
+    returns (address, uint256)
+  {
+    uint256 royaltyAmount = (_salePrice * royalty) / _feeDenominator();
+    return (address(this), royaltyAmount);
   }
+
+  function _onlyPair() internal {
+    if (tradePool == address(0)) return;
+    if (msg.sender != tradePool) {
+      revert SenderNotPair();
+    }
+  }
+
+  function afterNewPair() external {
+    _onlyPair();
+  }
+
+  // Also need to factor in new token balance and new NFT balance during calculations
+  function afterSwapNFTInPair(
+    uint256 _tokensOut,
+    uint256 _tokensOutProtocolFee,
+    uint256 _tokensOutRoyalty,
+    uint256[] calldata _nftsIn
+  ) external {
+    _onlyPair();
+    _totalFees += _tokensOutRoyalty;
+  }
+
+  // Also need to factor in new token balance and new NFT balance during calculations
+  function afterSwapNFTOutPair(
+    uint256 _tokensIn,
+    uint256 _tokensInProtocolFee,
+    uint256 _tokensInRoyalty,
+    uint256[] calldata _nftsOut
+  ) external {
+    _onlyPair();
+    _totalFees += _tokensInRoyalty;
+  }
+
+  function afterDeltaUpdate(uint128 _oldDelta, uint128 _newDelta) external {
+    _onlyPair();
+  }
+
+  function afterSpotPriceUpdate(uint128 _oldSpotPrice, uint128 _newSpotPrice)
+    external
+  {
+    _onlyPair();
+  }
+
+  function afterFeeUpdate(uint96 _oldFee, uint96 _newFee) external {
+    _onlyPair();
+  }
+
+  function afterNFTWithdrawal(uint256[] calldata _nftsOut) external {
+    _onlyPair();
+  }
+
+  function afterTokenWithdrawal(uint256 _tokensOut) external {
+    _onlyPair();
+  }
+
+  function syncForPair(
+    address pairAddress,
+    uint256 _tokensIn,
+    uint256[] calldata _nftsIn
+  ) external {
+    _onlyPair();
+  }
+
 
   error ApprovalRequired(uint256 tokenId);
 
@@ -147,7 +221,6 @@ contract TheLP is ERC721AQueryable, Owned, ReentrancyGuard {
   }
 
   error InvalidDepositAmount();
-
 
   error NothingToClaim();
 
@@ -193,14 +266,10 @@ contract TheLP is ERC721AQueryable, Owned, ReentrancyGuard {
     returns (string memory)
   {
     bytes32 seed;
-    // 1 - 1000
+    // 1 - 333
     if (tokenId <= MAX_TEAM) {
       seed = keccak256(abi.encodePacked(teamMintBlockHash, tokenId));
-      // 9001 - 10000
-    } else if (tokenId >= MAX_PUB_SALE + MAX_TEAM + 1) {
-      seed = keccak256(abi.encodePacked(lpMintBlockHash, tokenId));
     } else {
-      // 1001 - 9000
       seed = tokenMintInfo[tokenId].seed;
     }
     return renderer.getJsonUri(tokenId, seed);
@@ -212,7 +281,7 @@ contract TheLP is ERC721AQueryable, Owned, ReentrancyGuard {
 
   /// @dev Public function that returns game over status
   function isGameOver() public view returns (bool) {
-    return block.timestamp >= endTime && _totalMinted() < MAX_SUPPLY;
+    return block.timestamp > endTime && _totalMinted() < MAX_SUPPLY;
   }
 
   /// @dev Private function to redeem mint costs for a given NFT ID
@@ -256,6 +325,8 @@ contract TheLP is ERC721AQueryable, Owned, ReentrancyGuard {
     tokenMintInfo[tokenId].cost = 0;
   }
 
+  /// @dev Function to claim delta between price paid and final sale price
+  /// NFTs must be sold out in order to use this function
   function claimRefund(uint256[] memory tokenIds) public nonReentrant {
     if (!lockedIn) {
       revert NotLockedIn();
@@ -266,7 +337,7 @@ contract TheLP is ERC721AQueryable, Owned, ReentrancyGuard {
   }
 
   /// @dev This function disables transfers until mint is complete.
-  function _beforeTokenTransfers(
+  function _beforeTokenTransfers( 
     address from,
     address to,
     uint256 startTokenId,
@@ -278,7 +349,7 @@ contract TheLP is ERC721AQueryable, Owned, ReentrancyGuard {
     }
   }
 
-  uint poolEthAmount;
+  uint256 poolEthAmount;
 
   /// @dev Private function that is called once the last NFT of public sale is minted.
   function _lockItIn() private {
@@ -288,21 +359,15 @@ contract TheLP is ERC721AQueryable, Owned, ReentrancyGuard {
     lockedIn = true;
     // Get available funds minus refunds
     uint256 totalAvailableEth = (_totalMinted() - MAX_TEAM) * finalCost;
-    // To be used in Uniswap pool
 
-    // whats the final price and how much eth is required to put in the pool
-    // for 100 to equal that price?
     poolEthAmount = finalCost * 100;
 
-    Address.sendValue(
-      payable(owner),
-      totalAvailableEth - poolEthAmount
-    );
+    Address.sendValue(payable(owner), totalAvailableEth - poolEthAmount);
     lpMintBlockHash = blockhash(block.number - 1);
   }
 
   /// @dev Initializing pool on SudoSwap
-  function _initSudoPool() internal returns (address tradePool) {
+  function _initSudoPool() internal {
     poolInitialized = true;
     uint256[] memory empty = new uint256[](0);
     tradePool = address(
@@ -312,23 +377,28 @@ contract TheLP is ERC721AQueryable, Owned, ReentrancyGuard {
         payable(address(this)),
         LSSVMPair.PoolType.TRADE,
         uint128(finalCost),
+        // set fee to 0 use royalty standard to specify fees
         0,
         uint128(finalCost),
         address(0),
-        empty
+        empty,
+        // Hook
+        address(this),
+        // Referral
+        address(0)
       )
     );
     _mint(tradePool, 100);
-    (bool sent, bytes memory data) = tradePool.call{value: poolEthAmount }("");
+    (bool sent, bytes memory data) = tradePool.call{ value: poolEthAmount }("");
     require(sent, "Failed to send Ether");
   }
 
-  function initSudoPool() public nonReentrant {
-    if(poolInitialized) {
-        revert PoolInitialized();
+  function initSudoPool() public onlyOwner nonReentrant {
+    if (poolInitialized) {
+      revert PoolInitialized();
     }
-    if(!lockedIn) {
-        revert NotLockedIn();
+    if (!lockedIn) {
+      revert NotLockedIn();
     }
     _initSudoPool();
   }
@@ -347,10 +417,10 @@ contract TheLP is ERC721AQueryable, Owned, ReentrancyGuard {
   /// @dev Public mint function
   /// Must pass msg.value greater than or equal to current mint price * amount
   function mint(uint256 amount) public payable nonReentrant {
-    if(lockedIn) {
-        revert SoldOut();
+    if (lockedIn) {
+      revert SoldOut();
     }
-    if (block.timestamp >= endTime) {
+    if (block.timestamp > endTime) {
       revert AuctionEnded();
     }
     if (block.timestamp < startTime) {
@@ -388,8 +458,11 @@ contract TheLP is ERC721AQueryable, Owned, ReentrancyGuard {
     }
   }
 
-  /// @dev Receive function called when this contract receives Ether
   receive() external payable virtual {
+    emit PaymentReceived(msg.sender, msg.value);
+  }
+
+  fallback() external payable {
     emit PaymentReceived(msg.sender, msg.value);
   }
 }
