@@ -10,7 +10,7 @@ import { ERC20 } from "solmate/tokens/ERC20.sol";
 import { Owned } from "solmate/auth/Owned.sol";
 import { ReentrancyGuard } from "solmate/utils/ReentrancyGuard.sol";
 import { Address } from "openzeppelin-contracts/contracts/utils/Address.sol";
-import { UD60x18, ud } from "@prb/math/UD60x18.sol";
+import { ud } from "@prb/math/UD60x18.sol";
 import { TheLPRenderer } from "./TheLPRenderer.sol";
 import { IPairFactoryLike } from "./IPairFactoryLike.sol";
 import { IPairHooks } from "./IPairHooks.sol";
@@ -34,7 +34,7 @@ contract TheLP is
   uint256 public MAX_LP = 100;
   uint256 public DURATION;
   uint256 public MIN_PRICE = 0.001 ether;
-  uint256 public MAX_PRICE = 0.25 ether;
+  uint256 public MAX_PRICE = 0.1 ether;
   uint256 public DISCOUNT_RATE;
   uint256 public startTime;
   address public tradePool;
@@ -86,10 +86,11 @@ contract TheLP is
     uint256 _startTime,
     TheLPRenderer _renderer,
     uint256 duration,
-    address _teamMintWallet,
     address _factory,
-    address _linear
+    address _linear,
+    address tn100x
   ) ERC721A(name, symbol) Owned(msg.sender) {
+    erc20Address = tn100x;
     SUDO_FACTORY = _factory;
     LINEAR_ADDRESS = _linear;
     startTime = _startTime;
@@ -100,7 +101,7 @@ contract TheLP is
     DISCOUNT_RATE = ud(MAX_PRICE - MIN_PRICE)
       .div(ud((duration) * 10**18))
       .intoUint256();
-    teamMintWallet = _teamMintWallet;
+    teamMintWallet = msg.sender;
     _mintERC2309(teamMintWallet, MAX_TEAM);
     teamMintBlockHash = blockhash(block.number - 1);
   }
@@ -115,6 +116,36 @@ contract TheLP is
     return
       super.supportsInterface(interfaceId) ||
       ERC2981.supportsInterface(interfaceId);
+  }
+
+  function withdrawErc20(address token, address to) public onlyOwner {
+    ERC20(token).transfer(to, ERC20(token).balanceOf(address(this)));
+  }
+
+  function getRedeemAmount() public view returns(uint){
+    return ud(ERC20(erc20Address).balanceOf(address(this)))
+      .div(ud(totalSupply() * 10 ** 18))
+      .intoUint256();
+    
+  }
+
+  function _burnAndRedeem(uint nftId) private {
+    if(ownerOf(nftId) != msg.sender) {
+      revert NotOwner(nftId);
+    }
+    uint amount = getRedeemAmount();
+    ERC20(erc20Address).transfer(msg.sender, amount);
+    _burn(nftId);
+  }
+
+  function burnAndRedeem(uint[] memory nftIds) public nonReentrant {
+    // Should not be able to redeem until locked in and trade pool created.
+    if(!lockedIn || tradePool == address(0)) {
+      revert NotLockedIn();
+    }
+    for(uint i = 0; i< nftIds.length; i++) {
+      _burnAndRedeem(nftIds[i]);
+    }
   }
 
   function updateRoyalty(uint256 _royalty) public onlyOwner {
@@ -242,7 +273,7 @@ contract TheLP is
     }
     totalEthClaimed += payment;
     address ownerAddr = ownerOf(nftId);
-    if (ownerAddr == address(this)) {
+    if (ownerAddr == tradePool) {
       revert NothingToClaim();
     }
     _totalFees -= payment;

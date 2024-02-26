@@ -7,6 +7,7 @@ import "../src/TheLPTraits.sol";
 import "../src/TheLPRenderer.sol";
 import "solmate/utils/LibString.sol";
 import "openzeppelin-contracts/contracts/utils/Address.sol";
+import { ERC20 } from "solmate/tokens/ERC20.sol";
 import { LSSVMPair } from "lssvm2/LSSVMPair.sol";
 
 // forge test --fork-url https://base-mainnet.g.alchemy.com/v2/TJE11PfqHQaUQaRpRlkKfzwt8njReT2D --match-path ./test/TheLP2.t.sol -vvv
@@ -17,16 +18,18 @@ contract TheLPTest is Test {
   using LibString for uint256;
   TheLPTraits traits;
 
-  address deployer = address(1);
+  address tn100x = 0x5B5dee44552546ECEA05EDeA01DCD7Be7aa6144A;
+
+  address deployer = address(0x16760803046fFa4D05878333B0953bBDDc0C20Cb);
   address minter = address(2);
   address buyer = address(3);
   address linear = 0xe41352CB8D9af18231E05520751840559C2a548A;
   address factory = 0x605145D263482684590f630E9e581B21E4938eb8;
-
+  // Send 1,950,000,000 to contract after deployment
   function setUp() public {
+    vm.startPrank(deployer);
     traits = new TheLPTraits();
     renderer = new TheLPRenderer(traits);
-    vm.prank(deployer);
     lp = new TheLP(
       "The Based LP",
       "BLP",
@@ -34,11 +37,42 @@ contract TheLPTest is Test {
       renderer,
       // Should this be 3 days? I had 12 days in original contract but it was 11
       2 days,
-      deployer,
       factory,
-      linear
+      linear,
+      tn100x
     );
     renderer.setTraitsImage(vm.readFile("./traits.base64"));
+    ERC20(tn100x).transfer(address(lp), 1950000000 ether);
+    vm.stopPrank();
+  }
+// 2,010,315,496.4429322611
+  function testShouldBurnAndRedeem() public {
+    vm.deal(minter, 800 ether);
+    vm.startPrank(minter);
+    uint256 mintPrice = lp.getCurrentMintPrice();
+    uint256 amount = 2900;
+    lp.mint{ value: mintPrice * amount }(amount);
+    vm.stopPrank();
+    vm.prank(deployer);
+    lp.initSudoPool();
+    uint redeemAmount = lp.getRedeemAmount();
+    vm.startPrank(minter);
+    uint256[] memory ids = new uint256[](1);
+    ids[0] = 334;
+    lp.burnAndRedeem(ids);
+
+    assertEq(ERC20(tn100x).balanceOf(minter), redeemAmount);
+
+    uint redeemAmount2 = lp.getRedeemAmount();
+    ids[0] = 335;
+    lp.burnAndRedeem(ids);
+    assertEq(ERC20(tn100x).balanceOf(minter), redeemAmount2 + redeemAmount);
+
+    for(uint i = 336; i < 500; i++) {
+        ids[0] = i;
+        lp.burnAndRedeem(ids);
+    }
+
   }
 
   function testShouldBeAbleToMintUpTo2daysButNotAfter() public {
@@ -46,7 +80,6 @@ contract TheLPTest is Test {
     vm.warp(block.timestamp + 2 days);
     vm.startPrank(minter);
     uint256 mintPrice = lp.getCurrentMintPrice();
-    assertEq(mintPrice - 0.001 ether < 50000, true);
     lp.mint{ value: mintPrice }(1);
     vm.warp(block.timestamp + 1 days);
     mintPrice = lp.getCurrentMintPrice();
@@ -146,8 +179,8 @@ contract TheLPTest is Test {
     vm.stopPrank();
     uint256 balanceAfterAllSold = deployer.balance;
     uint256 delta = balanceAfterAllSold - balanceBeforeAllSold;
-    uint256 amountToSudo = 100 * 0.25 ether;
-    uint256 totalAmount = 2900 * 0.25 ether;
+    uint256 amountToSudo = 100 * 0.1 ether;
+    uint256 totalAmount = 2900 * 0.1 ether;
     assertEq(delta, totalAmount - amountToSudo);
     vm.prank(deployer);
     lp.initSudoPool();

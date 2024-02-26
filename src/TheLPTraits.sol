@@ -24,7 +24,9 @@ contract TheLPTraits {
         // Unlooped Green
         "#66d559",
         // Hero Yellow
-        "#f6d831"
+        "#f6d831",
+        // Sudo Purple
+        "#b9b9ff"
     ];
 
     function getBack(uint256 i) public view returns (string memory) {

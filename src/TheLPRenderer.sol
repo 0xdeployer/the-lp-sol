@@ -281,7 +281,7 @@ contract TheLPRenderer is Owned {
 
         traits = [
             // back
-            _r(seeds.one, 1, 100) <= 10 ? _r(seeds.one, 1, 2) : 0,
+            _r(seeds.one, 1, 100) <= 5 ? _r(seeds.one, 1, 2) : 0,
             // pants
             _r(seeds.two, 1, 100) <= 2 ? 0 : _r(seeds.two, 1, 100) <= 50
                 ? _r(seed, 59, 62)
@@ -303,7 +303,7 @@ contract TheLPRenderer is Owned {
             // hand
             _r(seeds.eight + 1, 1, 100) <= 25 ? _r(seeds.eight, 63, 71) : 0,
             // kit
-            _r(seeds.nine, 1, 100) <= 10 ? _r(seeds.nine, 1, 4) : 0,
+            _r(seeds.nine, 1, 100) <= 1 ? _r(seeds.nine, 1, 4) : 0,
             // bg
             _r(seeds.ten, 0, 4)
         ];
