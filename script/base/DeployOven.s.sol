@@ -21,7 +21,7 @@ contract Run is Script {
     OvenProxy ovenProxy = new OvenProxy(
       address(oven),
       address(proxyAdmin),
-      abi.encodeWithSelector(Oven.initialize.selector, tn, lp)
+      abi.encodeWithSelector(Oven.initialize.selector, tn, lp, 1710345600)
     );
     oven = Oven(address(ovenProxy));
     tn100x.transfer(address(ovenProxy), 1_950_000_000 * 10**18);

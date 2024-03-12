@@ -13,6 +13,7 @@ contract Oven is Owned, Initializable {
   address public lp;
   address public burnAddress;
   uint256 private locked;
+  uint public start;
 
   modifier nonReentrant() virtual {
     require(locked == 1, "REENTRANCY");
@@ -25,16 +26,18 @@ contract Oven is Owned, Initializable {
   }
 
   error InvalidOwner();
+  error HasNotStarted();
 
   constructor() Owned(address(0)) {
     _disableInitializers();
   }
 
-  function initialize(address _tn100x, address _lp) public initializer {
+  function initialize(address _tn100x, address _lp, uint _start) public initializer {
     lp = _lp;
     tn100x = _tn100x;
     locked = 1;
     owner = msg.sender;
+    start = _start;
     burnAddress = 0x000000000000000000000000000000000000dEaD;
     emit OwnershipTransferred(address(0), msg.sender);
   }
@@ -72,7 +75,14 @@ contract Oven is Owned, Initializable {
     ERC20(tn100x).transfer(msg.sender, amountToRedeem);
   }
 
+  function hasStarted() public view returns(bool){
+    return block.timestamp >= start;
+  }
+
   function burnAndRedeem(uint256[] memory tokenIds) public nonReentrant {
+    if(!hasStarted()) {
+      revert HasNotStarted();
+    }
     for (uint256 i = 0; i < tokenIds.length; ) {
       _burnAndRedeem(tokenIds[i]);
       unchecked {

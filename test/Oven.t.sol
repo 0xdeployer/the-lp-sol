@@ -32,7 +32,7 @@ contract OvenTest is Test {
     // OvenProxy ovenProxy = new OvenProxy(
     //   address(oven),
     //   address(proxyAdmin),
-    //   abi.encodeWithSelector(Oven.initialize.selector, tn, lp)
+    //   abi.encodeWithSelector(Oven.initialize.selector, tn, lp, block.timestamp)
     // );
     // oven = Oven(address(ovenProxy));
     // tn100x.transfer(address(ovenProxy), 1_950_000_000 * 10**18);
@@ -51,7 +51,34 @@ contract OvenTest is Test {
   //   // console2.log(oven.getBurnAmount(300));
   // }
 
-  function testBurnToCompletion() public {
+  // function testBurnToCompletion() public {
+  //   TN100x tn100x = new TN100x();
+  //   Test721 test721 = new Test721();
+  //   ProxyAdmin proxyAdmin = new ProxyAdmin();
+  //   Oven oven = new Oven();
+  //   OvenProxy ovenProxy = new OvenProxy(
+  //     address(oven),
+  //     address(proxyAdmin),
+  //     abi.encodeWithSelector(
+  //       Oven.initialize.selector,
+  //       address(tn100x),
+  //       address(test721)
+  //     )
+  //   );
+  //   oven = Oven(address(ovenProxy));
+  //   tn100x.transfer(address(ovenProxy), 1_950_000_000 * 10**18);
+  //   test721.setApprovalForAll(address(oven), true);
+  //   for (uint256 i = 1; i <= 3331; i++) {
+  //     uint256[] memory tokenIds = new uint256[](1);
+  //     tokenIds[0] = i;
+  //     oven.burnAndRedeem(tokenIds);
+  //     // console2.log(tn100x.balanceOf(address(ovenProxy)));
+  //   }
+  //   console2.log(test721.balanceOf(oven.burnAddress()));
+  //   // console2.log(oven.getBurnAmount(1));
+  // }
+
+  function testStartDate() public {
     TN100x tn100x = new TN100x();
     Test721 test721 = new Test721();
     ProxyAdmin proxyAdmin = new ProxyAdmin();
@@ -62,19 +89,24 @@ contract OvenTest is Test {
       abi.encodeWithSelector(
         Oven.initialize.selector,
         address(tn100x),
-        address(test721)
+        address(test721),
+        block.timestamp + 1 days
       )
     );
     oven = Oven(address(ovenProxy));
     tn100x.transfer(address(ovenProxy), 1_950_000_000 * 10**18);
     test721.setApprovalForAll(address(oven), true);
-    for (uint256 i = 1; i <= 3331; i++) {
-      uint256[] memory tokenIds = new uint256[](1);
-      tokenIds[0] = i;
-      oven.burnAndRedeem(tokenIds);
-      // console2.log(tn100x.balanceOf(address(ovenProxy)));
-    }
-    console2.log(test721.balanceOf(oven.burnAddress()));
+    uint256[] memory tokenIds = new uint256[](1);
+    tokenIds[0] = 1;
+    bool hasStarted = oven.hasStarted();
+    assertEq(hasStarted, false);
+    vm.expectRevert(Oven.HasNotStarted.selector);
+    oven.burnAndRedeem(tokenIds);
+
+    vm.warp(block.timestamp + 1 days);
+    hasStarted = oven.hasStarted();
+    assertEq(hasStarted, true);
+  oven.burnAndRedeem(tokenIds);
     // console2.log(oven.getBurnAmount(1));
   }
 }
