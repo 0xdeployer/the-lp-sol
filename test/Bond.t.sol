@@ -9,11 +9,12 @@ import { TheLP } from "../src/TheLP.sol";
 import { Test721 } from "../src/mock/Erc721.sol";
 import { ProxyAdmin } from "openzeppelin-contracts/contracts/proxy/transparent/ProxyAdmin.sol";
 import { IPool } from "aerodrome/interfaces/IPool.sol";
+import { IRouter } from "aerodrome/interfaces/IRouter.sol";
 import { Tn100xBondIssuer } from "../src/Bond.sol";
 import { BondProxy } from "../src/BondProxy.sol";
 
 // Fork testing mainnet required
-contract OvenTest is Test {
+contract BondTest is Test {
   IPool public pool;
 
   address tn = 0x5B5dee44552546ECEA05EDeA01DCD7Be7aa6144A;
@@ -29,13 +30,18 @@ contract OvenTest is Test {
     vm.startPrank(deployer);
     pool = IPool(_pool);
 
-        bondIssuer = new Tn100xBondIssuer();
+    bondIssuer = new Tn100xBondIssuer();
 
     ProxyAdmin proxyAdmin = new ProxyAdmin();
     BondProxy bondProxy = new BondProxy(
       address(bondIssuer),
       address(proxyAdmin),
-      abi.encodeWithSelector(Tn100xBondIssuer.initialize.selector, tn, _pool, weth)
+      abi.encodeWithSelector(
+        Tn100xBondIssuer.initialize.selector,
+        tn,
+        _pool,
+        weth
+      )
     );
     bondIssuer = Tn100xBondIssuer(address(bondProxy));
     TN100x(tn).transfer(address(bondIssuer), 7_000_000 ether);
@@ -43,11 +49,32 @@ contract OvenTest is Test {
 
   function testQuote() public {
     // uint256[] memory quote = pool.sample(weth, 1e18, 1, 1);
-    bondIssuer.buy{value: 0.25 ether}();
+    bondIssuer.buy{ value: 0.25 ether }();
     bondIssuer.bonds(1);
   }
 
-
+  function testRouter() public {
+    IRouter.Route[] memory routes = new IRouter.Route[](2);
+    routes[0] = IRouter.Route({
+      from: 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913,
+      to: 0x4200000000000000000000000000000000000006,
+      stable: true,
+      factory: address(0)
+    });
+    routes[1] = IRouter.Route({
+      from: 0x4200000000000000000000000000000000000006,
+      to: 0x5B5dee44552546ECEA05EDeA01DCD7Be7aa6144A,
+      stable: false,
+      factory: address(0)
+    });
+    uint[] memory amount = IRouter(0xcF77a3Ba9A5CA399B7c97c74d54e5b1Beb874E43).getAmountsOut(
+      250000,
+      routes
+    );
+    console2.log(amount[0]);
+    console2.log(amount[1]);
+    console2.log(amount[2]);
+  }
 }
 
 // forge test --fork-url https://base-mainnet.g.alchemy.com/v2/TJE11PfqHQaUQaRpRlkKfzwt8njReT2D --match-path ./test/Bond.t.sol  -vvv
