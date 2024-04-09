@@ -104,8 +104,16 @@ contract Floaties is IFloaties, Owned, Initializable {
     _;
   }
 
+  function updateCollectionAccount(address _collectionAccount) public onlyOwner {
+    collectionAccount = _collectionAccount;
+  }
+
   function withdrawErc20(address token, address to) public onlyOwner {
     ERC20(token).transfer(to, ERC20(token).balanceOf(address(this)));
+  }
+
+  function updateStaticFee(uint fee) public onlyOwner {
+    staticFee = fee;
   }
 
   function initFloaty(
