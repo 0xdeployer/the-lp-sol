@@ -39,11 +39,11 @@ contract Run is Script {
 
   // chad 
     {
-      bytes memory emojiHash = hex"f09fa6b4";
-      uint256 valuePerEmoji = 500 ether;
+      bytes memory emojiHash = hex"f09f91bd";
+      uint256 valuePerEmoji = 10 ether;
       floaties.initFloaty(
         emojiHash,
-        0x6921B130D297cc43754afba22e5EAc0FBf8Db75b,
+        0xbb5D04c40Fa063FAF213c4E0B8086655164269Ef,
         valuePerEmoji
       );
     }
