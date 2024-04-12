@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.13;
+pragma solidity 0.8.23;
 
 import { MerkleProofLib } from "solmate/utils/MerkleProofLib.sol";
 import { Initializable } from "openzeppelin-contracts/contracts/proxy/utils/Initializable.sol";
@@ -18,7 +18,6 @@ interface IFloaties {
     uint8 v;
     bytes32 r;
     bytes32 s;
-
     uint256 tnFee;
     uint256 tnDeadline;
     uint8 tnV;
@@ -88,6 +87,15 @@ contract Floaties is IFloaties, Owned, Initializable {
     emit OwnershipTransferred(address(0), msg.sender);
   }
 
+  function setEthFeeAndFloatyHash(uint256 _ethFee, bytes memory _ethFloatyHash)
+    public
+    onlyOwner
+  {
+    if (ethPerFloaty != 0) revert();
+    ethPerFloaty = _ethFee;
+    ethFloatyHash = _ethFloatyHash;
+  }
+
   function modifySigner(address signer, bool value) public onlyOwner {
     signers[signer] = value;
     emit SignerUpdate(signer, value);
@@ -104,7 +112,10 @@ contract Floaties is IFloaties, Owned, Initializable {
     _;
   }
 
-  function updateCollectionAccount(address _collectionAccount) public onlyOwner {
+  function updateCollectionAccount(address _collectionAccount)
+    public
+    onlyOwner
+  {
     collectionAccount = _collectionAccount;
   }
 
@@ -112,7 +123,7 @@ contract Floaties is IFloaties, Owned, Initializable {
     ERC20(token).transfer(to, ERC20(token).balanceOf(address(this)));
   }
 
-  function updateStaticFee(uint fee) public onlyOwner {
+  function updateStaticFee(uint256 fee) public onlyOwner {
     staticFee = fee;
   }
 
@@ -131,7 +142,12 @@ contract Floaties is IFloaties, Owned, Initializable {
 
   error InsufficientBalance();
 
-  event Spend(address indexed from, address indexed to, bytes indexed hash, uint amount);
+  event Spend(
+    address indexed from,
+    address indexed to,
+    bytes indexed hash,
+    uint256 amount
+  );
 
   function spend(
     address from,
@@ -160,7 +176,11 @@ contract Floaties is IFloaties, Owned, Initializable {
     emit Spend(from, to, floatyHash, floatyAmount);
   }
 
-  event PurchaseFloaties(address indexed buyer, bytes indexed floatyHash, uint amount);
+  event PurchaseFloaties(
+    address indexed buyer,
+    bytes indexed floatyHash,
+    uint256 amount
+  );
 
   function buyWithApproval(
     bytes memory floatyHash,
@@ -208,11 +228,7 @@ contract Floaties is IFloaties, Owned, Initializable {
     emit PurchaseFloaties(msg.sender, floatyHash, floatyAmount);
   }
 
-  function calculateFee(uint256 floatyAmount)
-    public
-    view
-    returns (uint256)
-  {
+  function calculateFee(uint256 floatyAmount) public view returns (uint256) {
     IRouter.Route[] memory routes = new IRouter.Route[](2);
     routes[0] = IRouter.Route({
       from: 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913,
@@ -280,4 +296,65 @@ contract Floaties is IFloaties, Owned, Initializable {
     balanceOf[msg.sender][args.floatyHash] += args.floatyAmount;
     emit PurchaseFloaties(msg.sender, args.floatyHash, args.floatyAmount);
   }
+
+  function calculateEthFee(uint256 floatyAmount) public view returns (uint256) {
+    IRouter.Route[] memory routes = new IRouter.Route[](1);
+    routes[0] = IRouter.Route({
+      from: 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913,
+      to: 0x4200000000000000000000000000000000000006,
+      stable: true,
+      factory: address(0)
+    });
+    uint256[] memory amount = IRouter(
+      0xcF77a3Ba9A5CA399B7c97c74d54e5b1Beb874E43
+    ).getAmountsOut(staticFee, routes);
+    return amount[1] * floatyAmount;
+  }
+
+  error InvalidSubtotal();
+  error InvalidEthAmount();
+
+  function buyEthFloaty(uint256 amount) public payable {
+    uint256 ethFee = calculateEthFee(amount);
+    uint256 subtotal = amount * ethPerFloaty;
+    uint256 total = subtotal + ethFee;
+    if (subtotal == 0) {
+      revert InvalidSubtotal();
+    }
+    if (msg.value < total) {
+      revert InvalidEthAmount();
+    }
+    uint256 refund = msg.value - total;
+    if (refund > 0) {
+      (bool sent, ) = msg.sender.call{ value: refund }("");
+      require(sent, "Refund not sent");
+    }
+    balanceOf[msg.sender][ethFloatyHash] += amount;
+  }
+
+  function spendEth(
+    address from,
+    address to,
+    bytes memory msgHash,
+    uint256 floatyAmount
+  ) public notPaused nonReentrant {
+    if (signers[msg.sender] == false) {
+      revert InvalidSigner();
+    }
+    if (paidMessage[msgHash]) {
+      revert MessageAlreadyPaid();
+    }
+    if (balanceOf[from][ethFloatyHash] < floatyAmount) {
+      revert InsufficientBalance();
+    }
+    paidMessage[msgHash] = true;
+    balanceOf[from][ethFloatyHash] -= floatyAmount;
+    uint256 tokenAmount = ethPerFloaty * floatyAmount;
+    (bool sent, ) = msg.sender.call{ value: tokenAmount }("");
+    require(sent, "Send failed");
+    emit Spend(from, to, ethFloatyHash, floatyAmount);
+  }
+
+  uint256 public ethPerFloaty;
+  bytes public ethFloatyHash;
 }
