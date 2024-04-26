@@ -87,15 +87,6 @@ contract Floaties is IFloaties, Owned, Initializable {
     emit OwnershipTransferred(address(0), msg.sender);
   }
 
-  function setEthFeeAndFloatyHash(uint256 _ethFee, bytes memory _ethFloatyHash)
-    public
-    onlyOwner
-  {
-    if (ethPerFloaty != 0) revert();
-    ethPerFloaty = _ethFee;
-    ethFloatyHash = _ethFloatyHash;
-  }
-
   function modifySigner(address signer, bool value) public onlyOwner {
     signers[signer] = value;
     emit SignerUpdate(signer, value);
@@ -297,64 +288,74 @@ contract Floaties is IFloaties, Owned, Initializable {
     emit PurchaseFloaties(msg.sender, args.floatyHash, args.floatyAmount);
   }
 
-  function calculateEthFee(uint256 floatyAmount) public view returns (uint256) {
+  function calculateEthToTn100x(uint256 amountIn)
+    public
+    view
+    returns (uint256)
+  {
     IRouter.Route[] memory routes = new IRouter.Route[](1);
     routes[0] = IRouter.Route({
-      from: 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913,
-      to: 0x4200000000000000000000000000000000000006,
-      stable: true,
+      from: 0x4200000000000000000000000000000000000006,
+      to: 0x5B5dee44552546ECEA05EDeA01DCD7Be7aa6144A,
+      stable: false,
       factory: address(0)
     });
-    uint256[] memory amount = IRouter(
-      0xcF77a3Ba9A5CA399B7c97c74d54e5b1Beb874E43
-    ).getAmountsOut(staticFee, routes);
-    return amount[1] * floatyAmount;
+    uint256[] memory out = IRouter(0xcF77a3Ba9A5CA399B7c97c74d54e5b1Beb874E43)
+      .getAmountsOut(amountIn, routes);
+    return out[1];
   }
 
-  error InvalidSubtotal();
-  error InvalidEthAmount();
-
-  function buyEthFloaty(uint256 amount) public payable {
-    uint256 ethFee = calculateEthFee(amount);
-    uint256 subtotal = amount * ethPerFloaty;
-    uint256 total = subtotal + ethFee;
-    if (subtotal == 0) {
-      revert InvalidSubtotal();
-    }
-    if (msg.value < total) {
-      revert InvalidEthAmount();
-    }
-    uint256 refund = msg.value - total;
-    if (refund > 0) {
-      (bool sent, ) = msg.sender.call{ value: refund }("");
-      require(sent, "Refund not sent");
-    }
-    balanceOf[msg.sender][ethFloatyHash] += amount;
+  function calculateTn100xToEth(uint256 amountIn)
+    public
+    view
+    returns (uint256)
+  {
+    IRouter.Route[] memory routes = new IRouter.Route[](1);
+    routes[0] = IRouter.Route({
+      from: 0x5B5dee44552546ECEA05EDeA01DCD7Be7aa6144A,
+      to: 0x4200000000000000000000000000000000000006,
+      stable: false,
+      factory: address(0)
+    });
+    uint256[] memory out = IRouter(0xcF77a3Ba9A5CA399B7c97c74d54e5b1Beb874E43)
+      .getAmountsOut(amountIn, routes);
+    return out[1];
   }
 
-  function spendEth(
-    address from,
-    address to,
-    bytes memory msgHash,
-    uint256 floatyAmount
-  ) public notPaused nonReentrant {
-    if (signers[msg.sender] == false) {
-      revert InvalidSigner();
-    }
-    if (paidMessage[msgHash]) {
-      revert MessageAlreadyPaid();
-    }
-    if (balanceOf[from][ethFloatyHash] < floatyAmount) {
-      revert InsufficientBalance();
-    }
-    paidMessage[msgHash] = true;
-    balanceOf[from][ethFloatyHash] -= floatyAmount;
-    uint256 tokenAmount = ethPerFloaty * floatyAmount;
-    (bool sent, ) = msg.sender.call{ value: tokenAmount }("");
-    require(sent, "Send failed");
-    emit Spend(from, to, ethFloatyHash, floatyAmount);
+  event EthForFloaty(bytes data);
+
+  function swapEthForTn100x(uint256 amountOutMin)
+    public
+    payable
+    returns (uint256[] memory amounts)
+  {
+    IRouter.Route[] memory routes = new IRouter.Route[](1);
+    routes[0] = IRouter.Route({
+      from: 0x4200000000000000000000000000000000000006,
+      to: 0x5B5dee44552546ECEA05EDeA01DCD7Be7aa6144A,
+      stable: false,
+      factory: address(0)
+    });
+    return
+      IRouter(0xcF77a3Ba9A5CA399B7c97c74d54e5b1Beb874E43).swapExactETHForTokens{
+        value: msg.value
+      }(amountOutMin, routes, address(this), block.timestamp + 5 minutes);
   }
 
-  uint256 public ethPerFloaty;
-  bytes public ethFloatyHash;
+  function swapEthForFloaties(uint256 amountOutMin, bytes memory data) public payable {
+    if (amountOutMin < 100 ether) {
+      revert InvalidAmount();
+    }
+    uint256[] memory amounts = swapEthForTn100x(amountOutMin);
+    uint256 tn100xReceived = amounts[1];
+    uint256 numberOfFloaties = tn100xReceived / 100 ether;
+    uint256 delta = tn100xReceived - (numberOfFloaties * 100 ether);
+    if (delta > 0) {
+      ERC20(tn100x).transfer(msg.sender, delta);
+    }
+
+    balanceOf[msg.sender][hex"f09fa684"] += numberOfFloaties;
+    emit PurchaseFloaties(msg.sender, hex"f09fa684", numberOfFloaties);
+    emit EthForFloaty(data);
+  }
 }

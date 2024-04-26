@@ -8,14 +8,17 @@ import { ERC20 } from "solmate/tokens/ERC20.sol";
 contract Airdropper is Owned {
   bytes32 public merkleRoot;
   address public tn100x;
+  uint public startTime;
   mapping(address => bool) public hasClaimed;
 
   error InvalidProof();
   error HasClaimed();
+  error NotStarted();
 
-  constructor(bytes32 _root, address _tn100x) Owned(msg.sender) {
+  constructor(bytes32 _root, address _tn100x, uint _startTime) Owned(msg.sender) {
     merkleRoot = _root;
     tn100x = _tn100x;
+    startTime = _startTime;
   }
 
   function _claim(uint256 amount, bytes32[] calldata proof) internal {
@@ -29,7 +32,14 @@ contract Airdropper is Owned {
     hasClaimed[msg.sender] = true;
   }
 
+  function updateStartTime(uint _starttime) public onlyOwner {
+    startTime = _starttime;
+  }
+
   function claim(uint256 amount, bytes32[] calldata proof) public {
+    if(block.timestamp < startTime) {
+      revert NotStarted();
+    }
     _claim(amount, proof);
     ERC20(tn100x).transfer(msg.sender, amount);
   }

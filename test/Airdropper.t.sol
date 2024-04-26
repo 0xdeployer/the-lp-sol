@@ -26,7 +26,8 @@ contract AirdropperTest is Test {
       bytes32(
         0x9109094ed51161cbd1236594a64ae8febcc93add1bb8406b0ac78b51457b2889
       ),
-      address(tn100x)
+      address(tn100x),
+      block.timestamp
     );
     tn100x.transfer(address(airdrop), 250_000_000 ether);
     tn100x.transfer(other, 1_000_000 ether);

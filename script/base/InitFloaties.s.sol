@@ -37,15 +37,54 @@ contract Run is Script {
   // 0xe2ac87efb88f
   // 0x67040BB0aD76236DdD5d156D23Ec920A089d1eac
 
-  // chad 
+
+
+    // usdc
     {
-      bytes memory emojiHash = hex"f09f91bd";
-      uint256 valuePerEmoji = 10 ether;
+      bytes memory emojiHash = hex"f09f92a8";
+      uint256 valuePerEmoji = 10000 ether;
       floaties.initFloaty(
         emojiHash,
-        0xbb5D04c40Fa063FAF213c4E0B8086655164269Ef,
+        0xd7D919Ea0c33A97ad6e7BD4F510498e2ec98Cb78,
         valuePerEmoji
       );
     }
   }
 }
+
+/*
+0xf09f8d8c
+  [toHex("🍌")]: {
+    token: "$BANANAS",
+    contract: "0x9A27C6759A6de0F26Ac41264f0856617DeC6bC3F",
+    amount: 100,
+  },
+
+  0xe29da4efb88f
+  [toHex("❤️")]: {
+    token: "$L2VE",
+    contract: "0xA19328fb05ce6FD204D16c2a2A98F7CF434c12F4",
+    amount: 690,
+  },
+
+  0xf09f9983
+  [toHex("🙃")]: {
+    token: "$DUH",
+    contract: "0x8011eef8FC855Df1c4f421443f306E19818e60D3",
+    amount: 69,
+  },
+
+  0xf09f98bc
+  [toHex("😼")]: {
+    token: "$TOSHI",
+    contract: "0xac1bd2486aaf3b5c0fc3fd868558b082a531b2b4",
+    amount: 420,
+  },
+
+  0xf09f92a8
+  [toHex("💨")]: {
+    token: "$PEN",
+    contract: "0xd7D919Ea0c33A97ad6e7BD4F510498e2ec98Cb78",
+    amount: 100000,
+  },
+*/

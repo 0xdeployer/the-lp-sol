@@ -1,8 +1,8 @@
 Compiling 34 files with 0.8.23
-Solc 0.8.23 finished in 720.16ms
+Solc 0.8.23 finished in 761.39ms
 Compiler run [32msuccessful![0m
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity >=0.8.0 >=0.8.19 ^0.8.0 ^0.8.1 ^0.8.13 ^0.8.2 ^0.8.4;
+pragma solidity =0.8.23 >=0.8.0 >=0.8.19 ^0.8.0 ^0.8.1 ^0.8.2 ^0.8.4;
 
 // lib/ERC721A/contracts/IERC721A.sol
 
@@ -4532,7 +4532,7 @@ using {
 /// @dev The result is rounded toward zero.
 /// @param x The UD60x18 number to convert.
 /// @return result The same number in basic integer form.
-function convert_0(UD60x18 x) pure returns (uint256 result) {
+function convert_1(UD60x18 x) pure returns (uint256 result) {
     result = UD60x18.unwrap(x) / uUNIT_3;
 }
 
@@ -4543,7 +4543,7 @@ function convert_0(UD60x18 x) pure returns (uint256 result) {
 ///
 /// @param x The basic integer to convert.
 /// @param result The same number converted to UD60x18.
-function convert_1(uint256 x) pure returns (UD60x18 result) {
+function convert_0(uint256 x) pure returns (UD60x18 result) {
     if (x > uMAX_UD60x18 / uUNIT_3) {
         revert PRBMath_UD60x18_Convert_Overflow(x);
     }
@@ -4583,7 +4583,6 @@ interface IFloaties {
     uint8 v;
     bytes32 r;
     bytes32 s;
-
     uint256 tnFee;
     uint256 tnDeadline;
     uint8 tnV;
@@ -4669,7 +4668,10 @@ contract Floaties is IFloaties, Owned, Initializable {
     _;
   }
 
-  function updateCollectionAccount(address _collectionAccount) public onlyOwner {
+  function updateCollectionAccount(address _collectionAccount)
+    public
+    onlyOwner
+  {
     collectionAccount = _collectionAccount;
   }
 
@@ -4677,7 +4679,7 @@ contract Floaties is IFloaties, Owned, Initializable {
     ERC20(token).transfer(to, ERC20(token).balanceOf(address(this)));
   }
 
-  function updateStaticFee(uint fee) public onlyOwner {
+  function updateStaticFee(uint256 fee) public onlyOwner {
     staticFee = fee;
   }
 
@@ -4696,7 +4698,12 @@ contract Floaties is IFloaties, Owned, Initializable {
 
   error InsufficientBalance();
 
-  event Spend(address indexed from, address indexed to, bytes indexed hash, uint amount);
+  event Spend(
+    address indexed from,
+    address indexed to,
+    bytes indexed hash,
+    uint256 amount
+  );
 
   function spend(
     address from,
@@ -4725,7 +4732,11 @@ contract Floaties is IFloaties, Owned, Initializable {
     emit Spend(from, to, floatyHash, floatyAmount);
   }
 
-  event PurchaseFloaties(address indexed buyer, bytes indexed floatyHash, uint amount);
+  event PurchaseFloaties(
+    address indexed buyer,
+    bytes indexed floatyHash,
+    uint256 amount
+  );
 
   function buyWithApproval(
     bytes memory floatyHash,
@@ -4773,11 +4784,7 @@ contract Floaties is IFloaties, Owned, Initializable {
     emit PurchaseFloaties(msg.sender, floatyHash, floatyAmount);
   }
 
-  function calculateFee(uint256 floatyAmount)
-    public
-    view
-    returns (uint256)
-  {
+  function calculateFee(uint256 floatyAmount) public view returns (uint256) {
     IRouter.Route[] memory routes = new IRouter.Route[](2);
     routes[0] = IRouter.Route({
       from: 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913,
@@ -4844,6 +4851,77 @@ contract Floaties is IFloaties, Owned, Initializable {
     // increase balance of purchased by amount
     balanceOf[msg.sender][args.floatyHash] += args.floatyAmount;
     emit PurchaseFloaties(msg.sender, args.floatyHash, args.floatyAmount);
+  }
+
+  function calculateEthToTn100x(uint256 amountIn)
+    public
+    view
+    returns (uint256)
+  {
+    IRouter.Route[] memory routes = new IRouter.Route[](1);
+    routes[0] = IRouter.Route({
+      from: 0x4200000000000000000000000000000000000006,
+      to: 0x5B5dee44552546ECEA05EDeA01DCD7Be7aa6144A,
+      stable: false,
+      factory: address(0)
+    });
+    uint256[] memory out = IRouter(0xcF77a3Ba9A5CA399B7c97c74d54e5b1Beb874E43)
+      .getAmountsOut(amountIn, routes);
+    return out[1];
+  }
+
+  function calculateTn100xToEth(uint256 amountIn)
+    public
+    view
+    returns (uint256)
+  {
+    IRouter.Route[] memory routes = new IRouter.Route[](1);
+    routes[0] = IRouter.Route({
+      from: 0x5B5dee44552546ECEA05EDeA01DCD7Be7aa6144A,
+      to: 0x4200000000000000000000000000000000000006,
+      stable: false,
+      factory: address(0)
+    });
+    uint256[] memory out = IRouter(0xcF77a3Ba9A5CA399B7c97c74d54e5b1Beb874E43)
+      .getAmountsOut(amountIn, routes);
+    return out[1];
+  }
+
+  event EthForFloaty(bytes data);
+
+  function swapEthForTn100x(uint256 amountOutMin)
+    public
+    payable
+    returns (uint256[] memory amounts)
+  {
+    IRouter.Route[] memory routes = new IRouter.Route[](1);
+    routes[0] = IRouter.Route({
+      from: 0x4200000000000000000000000000000000000006,
+      to: 0x5B5dee44552546ECEA05EDeA01DCD7Be7aa6144A,
+      stable: false,
+      factory: address(0)
+    });
+    return
+      IRouter(0xcF77a3Ba9A5CA399B7c97c74d54e5b1Beb874E43).swapExactETHForTokens{
+        value: msg.value
+      }(amountOutMin, routes, address(this), block.timestamp + 5 minutes);
+  }
+
+  function swapEthForFloaties(uint256 amountOutMin, bytes memory data) public payable {
+    if (amountOutMin < 100 ether) {
+      revert InvalidAmount();
+    }
+    uint256[] memory amounts = swapEthForTn100x(amountOutMin);
+    uint256 tn100xReceived = amounts[1];
+    uint256 numberOfFloaties = tn100xReceived / 100 ether;
+    uint256 delta = tn100xReceived - (numberOfFloaties * 100 ether);
+    if (delta > 0) {
+      ERC20(tn100x).transfer(msg.sender, delta);
+    }
+
+    balanceOf[msg.sender][hex"f09fa684"] += numberOfFloaties;
+    emit PurchaseFloaties(msg.sender, hex"f09fa684", numberOfFloaties);
+    emit EthForFloaty(data);
   }
 }
 
