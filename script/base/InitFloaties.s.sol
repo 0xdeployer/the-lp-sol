@@ -37,54 +37,39 @@ contract Run is Script {
   // 0xe2ac87efb88f
   // 0x67040BB0aD76236DdD5d156D23Ec920A089d1eac
 
+// rawr f09fa696
+// virtual f09fa496
+// shaka f09fa499
+
+  // nog
+    // {
+    //   bytes memory emojiHash = hex"e28c90e297a82de297a8";
+    //   uint256 valuePerEmoji = 1_000_000 ether;
+    //   floaties.initFloaty(
+    //     emojiHash,
+    //     0x13741C5dF9aB03E7Aa9Fb3Bf1f714551dD5A5F8a,
+    //     valuePerEmoji
+    //   );
+    // }
 
 
-    // usdc
-    {
-      bytes memory emojiHash = hex"f09f92a8";
-      uint256 valuePerEmoji = 10000 ether;
+        {
+      bytes memory emojiHash = hex"f09f90b1";
+      uint256 valuePerEmoji = 100000 ether;
       floaties.initFloaty(
         emojiHash,
-        0xd7D919Ea0c33A97ad6e7BD4F510498e2ec98Cb78,
+        0xF6e932Ca12afa26665dC4dDE7e27be02A7c02e50,
         valuePerEmoji
       );
     }
+
+  //     [toHex("🐱")]: {
+  //   token: "$MOCHI",
+  //   contract: "0xF6e932Ca12afa26665dC4dDE7e27be02A7c02e50",
+  //   amount: 100000,
+  // },
+
+
   }
 }
 
-/*
-0xf09f8d8c
-  [toHex("🍌")]: {
-    token: "$BANANAS",
-    contract: "0x9A27C6759A6de0F26Ac41264f0856617DeC6bC3F",
-    amount: 100,
-  },
-
-  0xe29da4efb88f
-  [toHex("❤️")]: {
-    token: "$L2VE",
-    contract: "0xA19328fb05ce6FD204D16c2a2A98F7CF434c12F4",
-    amount: 690,
-  },
-
-  0xf09f9983
-  [toHex("🙃")]: {
-    token: "$DUH",
-    contract: "0x8011eef8FC855Df1c4f421443f306E19818e60D3",
-    amount: 69,
-  },
-
-  0xf09f98bc
-  [toHex("😼")]: {
-    token: "$TOSHI",
-    contract: "0xac1bd2486aaf3b5c0fc3fd868558b082a531b2b4",
-    amount: 420,
-  },
-
-  0xf09f92a8
-  [toHex("💨")]: {
-    token: "$PEN",
-    contract: "0xd7D919Ea0c33A97ad6e7BD4F510498e2ec98Cb78",
-    amount: 100000,
-  },
-*/
