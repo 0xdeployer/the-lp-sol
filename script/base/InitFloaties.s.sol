@@ -17,59 +17,37 @@ contract Run is Script {
 
     Floaties floaties = Floaties(0x56B10bf5E47C8262569F3119Dfb4bE457795C8a2);
 
-    // pizza 0xf09f8d95
-    // 0x40468be13c4388D2AB68a09F56973fa95DB5bca0
-    // 10 ether
-
-    // send it 0xe28697efb88e
-    // 0xba5b9b2d2d06a9021eb3190ea5fb0e02160839a4
-    // 10 ether
-
-    // dino 0xf09fa696
-    // 0x469FdA1FB46Fcb4BeFc0D8B994B516bD28c87003
-    // 0.0001 ether
-
-  // higher 
-  // 0xe2ac86efb88f
-  // 0x0578d8A44db98B23BF096A382e016e29a5Ce0ffe
-
-  // lower
-  // 0xe2ac87efb88f
-  // 0x67040BB0aD76236DdD5d156D23Ec920A089d1eac
-
-// rawr f09fa696
-// virtual f09fa496
-// shaka f09fa499
-
-  // nog
+  // HUNT
     // {
-    //   bytes memory emojiHash = hex"e28c90e297a82de297a8";
-    //   uint256 valuePerEmoji = 1_000_000 ether;
+    //   bytes memory emojiHash = hex"f09fa7b1";
+    //   uint256 valuePerEmoji = 1 ether;
     //   floaties.initFloaty(
     //     emojiHash,
-    //     0x13741C5dF9aB03E7Aa9Fb3Bf1f714551dD5A5F8a,
+    //     0x37f0c2915CeCC7e977183B8543Fc0864d03E064C,
     //     valuePerEmoji
     //   );
     // }
 
-
-        {
-      bytes memory emojiHash = hex"f09f90b1";
-      uint256 valuePerEmoji = 100000 ether;
+    // japan
+    {
+      bytes memory emojiHash = hex"f09f87aff09f87b5";
+      uint256 valuePerEmoji = 10 ether;
       floaties.initFloaty(
         emojiHash,
-        0xF6e932Ca12afa26665dC4dDE7e27be02A7c02e50,
+        0xeF6dd3F0bE6f599e7BcA38b47dB638D5a749CF9C,
         valuePerEmoji
       );
     }
 
-  //     [toHex("🐱")]: {
-  //   token: "$MOCHI",
-  //   contract: "0xF6e932Ca12afa26665dC4dDE7e27be02A7c02e50",
-  //   amount: 100000,
-  // },
-
-
+     {
+      bytes memory emojiHash = hex"f09f8d94";
+      uint256 valuePerEmoji = 69 ether;
+      floaties.initFloaty(
+        emojiHash,
+        0x6776caCcFDCD0dFD5A38cb1D0B3b39A4Ca9283cE,
+        valuePerEmoji
+      );
+    }
   }
 }
 

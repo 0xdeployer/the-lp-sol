@@ -132,6 +132,7 @@ contract Floaties is IFloaties, Owned, Initializable {
   }
 
   error InsufficientBalance();
+  error InvalidBalance();
 
   event Spend(
     address indexed from,
@@ -163,7 +164,12 @@ contract Floaties is IFloaties, Owned, Initializable {
     paidMessage[msgHash] = true;
     balanceOf[from][floatyHash] -= floatyAmount;
     uint256 tokenAmount = floaty.tokenPerFloaty * floatyAmount;
-    ERC20(floaty.tokenAddress).transfer(to, tokenAmount);
+    ERC20 token = ERC20(floaty.tokenAddress);
+    uint256 balanceBefore = token.balanceOf(address(this));
+    token.transfer(to, tokenAmount);
+    if (balanceBefore - token.balanceOf(address(this)) != tokenAmount) {
+      revert InvalidBalance();
+    }
     emit Spend(from, to, floatyHash, floatyAmount);
   }
 
@@ -207,12 +213,21 @@ contract Floaties is IFloaties, Owned, Initializable {
     );
     ERC20(tn100x).transferFrom(msg.sender, collectionAccount, calculatedFee);
 
+    uint256 balanceBefore = ERC20(floaty.tokenAddress).balanceOf(address(this));
+
     // transfer token to this contract from purchasers account
     ERC20(floaty.tokenAddress).transferFrom(
       msg.sender,
       address(this),
       verifiedCost
     );
+
+    if (
+      ERC20(floaty.tokenAddress).balanceOf(address(this)) - balanceBefore !=
+      verifiedCost
+    ) {
+      revert InvalidBalance();
+    }
 
     // increase balance of purchased by amount
     balanceOf[msg.sender][floatyHash] += floatyAmount;
@@ -277,11 +292,22 @@ contract Floaties is IFloaties, Owned, Initializable {
       args.r,
       args.s
     );
+
+    uint256 balanceBefore = ERC20(floaty.tokenAddress).balanceOf(address(this));
+
+    // transfer token to this contract from purchasers account
     ERC20(floaty.tokenAddress).transferFrom(
       msg.sender,
       address(this),
       args.totalCost
     );
+
+    if (
+      ERC20(floaty.tokenAddress).balanceOf(address(this)) - balanceBefore !=
+      verifiedCost
+    ) {
+      revert InvalidBalance();
+    }
 
     // increase balance of purchased by amount
     balanceOf[msg.sender][args.floatyHash] += args.floatyAmount;
@@ -342,7 +368,10 @@ contract Floaties is IFloaties, Owned, Initializable {
       }(amountOutMin, routes, address(this), block.timestamp + 5 minutes);
   }
 
-  function swapEthForFloaties(uint256 amountOutMin, bytes memory data) public payable {
+  function swapEthForFloaties(uint256 amountOutMin, bytes memory data)
+    public
+    payable
+  {
     if (amountOutMin < 100 ether) {
       revert InvalidAmount();
     }

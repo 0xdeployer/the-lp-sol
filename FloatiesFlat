@@ -1,6 +1,3 @@
-Compiling 34 files with 0.8.23
-Solc 0.8.23 finished in 761.39ms
-Compiler run [32msuccessful![0m
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity =0.8.23 >=0.8.0 >=0.8.19 ^0.8.0 ^0.8.1 ^0.8.2 ^0.8.4;
 
@@ -4532,7 +4529,7 @@ using {
 /// @dev The result is rounded toward zero.
 /// @param x The UD60x18 number to convert.
 /// @return result The same number in basic integer form.
-function convert_1(UD60x18 x) pure returns (uint256 result) {
+function convert_0(UD60x18 x) pure returns (uint256 result) {
     result = UD60x18.unwrap(x) / uUNIT_3;
 }
 
@@ -4543,7 +4540,7 @@ function convert_1(UD60x18 x) pure returns (uint256 result) {
 ///
 /// @param x The basic integer to convert.
 /// @param result The same number converted to UD60x18.
-function convert_0(uint256 x) pure returns (UD60x18 result) {
+function convert_1(uint256 x) pure returns (UD60x18 result) {
     if (x > uMAX_UD60x18 / uUNIT_3) {
         revert PRBMath_UD60x18_Convert_Overflow(x);
     }
@@ -4697,6 +4694,7 @@ contract Floaties is IFloaties, Owned, Initializable {
   }
 
   error InsufficientBalance();
+  error InvalidBalance();
 
   event Spend(
     address indexed from,
@@ -4728,7 +4726,12 @@ contract Floaties is IFloaties, Owned, Initializable {
     paidMessage[msgHash] = true;
     balanceOf[from][floatyHash] -= floatyAmount;
     uint256 tokenAmount = floaty.tokenPerFloaty * floatyAmount;
-    ERC20(floaty.tokenAddress).transfer(to, tokenAmount);
+    ERC20 token = ERC20(floaty.tokenAddress);
+    uint256 balanceBefore = token.balanceOf(address(this));
+    token.transfer(to, tokenAmount);
+    if (balanceBefore - token.balanceOf(address(this)) != tokenAmount) {
+      revert InvalidBalance();
+    }
     emit Spend(from, to, floatyHash, floatyAmount);
   }
 
@@ -4772,12 +4775,21 @@ contract Floaties is IFloaties, Owned, Initializable {
     );
     ERC20(tn100x).transferFrom(msg.sender, collectionAccount, calculatedFee);
 
+    uint256 balanceBefore = ERC20(floaty.tokenAddress).balanceOf(address(this));
+
     // transfer token to this contract from purchasers account
     ERC20(floaty.tokenAddress).transferFrom(
       msg.sender,
       address(this),
       verifiedCost
     );
+
+    if (
+      ERC20(floaty.tokenAddress).balanceOf(address(this)) - balanceBefore !=
+      verifiedCost
+    ) {
+      revert InvalidBalance();
+    }
 
     // increase balance of purchased by amount
     balanceOf[msg.sender][floatyHash] += floatyAmount;
@@ -4842,11 +4854,22 @@ contract Floaties is IFloaties, Owned, Initializable {
       args.r,
       args.s
     );
+
+    uint256 balanceBefore = ERC20(floaty.tokenAddress).balanceOf(address(this));
+
+    // transfer token to this contract from purchasers account
     ERC20(floaty.tokenAddress).transferFrom(
       msg.sender,
       address(this),
       args.totalCost
     );
+
+    if (
+      ERC20(floaty.tokenAddress).balanceOf(address(this)) - balanceBefore !=
+      verifiedCost
+    ) {
+      revert InvalidBalance();
+    }
 
     // increase balance of purchased by amount
     balanceOf[msg.sender][args.floatyHash] += args.floatyAmount;
@@ -4907,7 +4930,10 @@ contract Floaties is IFloaties, Owned, Initializable {
       }(amountOutMin, routes, address(this), block.timestamp + 5 minutes);
   }
 
-  function swapEthForFloaties(uint256 amountOutMin, bytes memory data) public payable {
+  function swapEthForFloaties(uint256 amountOutMin, bytes memory data)
+    public
+    payable
+  {
     if (amountOutMin < 100 ether) {
       revert InvalidAmount();
     }
