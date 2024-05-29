@@ -28,23 +28,24 @@ contract Run is Script {
     //   );
     // }
 
-    // japan
+    // animated 0xe29eb0
     {
-      bytes memory emojiHash = hex"f09f87aff09f87b5";
-      uint256 valuePerEmoji = 10 ether;
+      bytes memory emojiHash = hex"e29eb0";
+      uint256 valuePerEmoji = 690 ether;
       floaties.initFloaty(
         emojiHash,
-        0xeF6dd3F0bE6f599e7BcA38b47dB638D5a749CF9C,
+        0xDdf98aad8180c3E368467782CD07AE2E3E8d36A5,
         valuePerEmoji
       );
     }
 
+// bleu 0xf09f9098
      {
-      bytes memory emojiHash = hex"f09f8d94";
-      uint256 valuePerEmoji = 69 ether;
+      bytes memory emojiHash = hex"f09f9098";
+      uint256 valuePerEmoji = 690 ether;
       floaties.initFloaty(
         emojiHash,
-        0x6776caCcFDCD0dFD5A38cb1D0B3b39A4Ca9283cE,
+        0xBf4Db8b7A679F89Ef38125d5F84dd1446AF2ea3B,
         valuePerEmoji
       );
     }
